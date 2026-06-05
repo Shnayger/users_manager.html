@@ -36,14 +36,13 @@
     </div>
 
     <script>
-        // ========== НАСТРОЙКИ ==========
-        // ⚠️ ВАЖНО: УКАЖИТЕ РЕАЛЬНЫЙ IP ВАШЕГО СЕРВЕРА
+        // API вашего сервера
         const API_BASE_URL = 'http://178.172.244.12:8081';
         
         let usersData = [];
         let changedUsers = new Set();
         
-        // ========== TELEGRAM WEB APP ==========
+        // Telegram Web App только для кнопки закрытия
         let tg = null;
         try {
             if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
@@ -53,46 +52,41 @@
                 console.log('✅ Telegram WebApp initialized');
             }
         } catch(e) {
-            console.log('⚠️ Not in Telegram WebApp');
+            console.log('⚠️ Not in Telegram');
         }
         
-        // Кнопка закрытия
-        document.getElementById('closeBtn').onclick = () => {
-            if (tg) tg.close();
-            else window.close();
-        };
+        document.getElementById('closeBtn').onclick = () => tg ? tg.close() : window.close();
         
-        // ========== API ЗАПРОСЫ ==========
+        // Загрузка пользователей через API
         async function loadUsers() {
             const statsDiv = document.getElementById('stats');
             const container = document.getElementById('users-list');
             
             statsDiv.innerHTML = '📊 Загрузка...';
-            container.innerHTML = '<div class="loading">⏳ Загрузка пользователей...</div>';
+            container.innerHTML = '<div class="loading">⏳ Загрузка...</div>';
             
             try {
-                console.log('🔄 Запрос к API:', `${API_BASE_URL}/api/users`);
+                console.log('🔄 Fetch:', `${API_BASE_URL}/api/users`);
                 const response = await fetch(`${API_BASE_URL}/api/users`);
                 const data = await response.json();
-                
-                console.log('📦 Получены данные:', data);
+                console.log('📦 Response:', data);
                 
                 if (data.success) {
                     usersData = data.users;
                     statsDiv.innerHTML = `📊 Всего пользователей: ${data.total}`;
                     renderUsers(usersData);
                 } else {
-                    container.innerHTML = `<div class="error">❌ Ошибка: ${data.error || 'Неизвестная ошибка'}</div>`;
+                    container.innerHTML = `<div class="error">❌ Ошибка: ${data.error}</div>`;
                 }
             } catch(e) {
-                console.error('❌ Ошибка загрузки:', e);
-                container.innerHTML = `<div class="error">❌ Ошибка соединения с сервером<br><br>Проверьте: ${API_BASE_URL}/api/users<br><br>${e.message}</div>`;
+                console.error('❌ Error:', e);
+                container.innerHTML = `<div class="error">❌ Ошибка: ${e.message}<br><br>Проверьте API: ${API_BASE_URL}/api/users</div>`;
             }
         }
         
         async function saveChanges() {
             if (changedUsers.size === 0) {
-                showTemporaryStatus('Нет изменений для сохранения');
+                showMessage('Нет изменений');
                 return;
             }
             
@@ -100,25 +94,21 @@
             for (const userId of changedUsers) {
                 const user = usersData.find(u => u.id == userId);
                 if (user && user.new_role) {
-                    changes.push({
-                        telegram_id: user.id,
-                        new_role: user.new_role
-                    });
+                    changes.push({ telegram_id: user.id, new_role: user.new_role });
                 }
             }
             
-            showTemporaryStatus('💾 Сохранение...');
+            showMessage('💾 Сохранение...');
             
             try {
                 const response = await fetch(`${API_BASE_URL}/api/roles`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ changes: changes })
+                    body: JSON.stringify({ changes })
                 });
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Обновляем локальные данные
                     for (const user of usersData) {
                         if (user.new_role) {
                             user.role = user.new_role;
@@ -128,37 +118,34 @@
                     changedUsers.clear();
                     renderUsers(usersData);
                     if (tg) tg.MainButton.hide();
-                    showTemporaryStatus(`✅ Сохранено ${data.saved} изменений`);
+                    showMessage(`✅ Сохранено ${data.saved} изменений`);
                     setTimeout(() => loadUsers(), 1500);
                 } else {
-                    showTemporaryStatus(`❌ Ошибка: ${data.error || 'Неизвестная ошибка'}`);
+                    showMessage(`❌ Ошибка сохранения`);
                 }
             } catch(e) {
-                showTemporaryStatus(`❌ Ошибка: ${e.message}`);
+                showMessage(`❌ Ошибка: ${e.message}`);
             }
         }
         
-        function showTemporaryStatus(message) {
+        function showMessage(msg) {
             const statsDiv = document.getElementById('stats');
-            const originalHtml = statsDiv.innerHTML;
-            statsDiv.innerHTML = message;
+            statsDiv.innerHTML = msg;
             setTimeout(() => {
-                if (usersData.length > 0) {
+                if (usersData.length) {
                     statsDiv.innerHTML = `📊 Всего пользователей: ${usersData.length}`;
                 } else {
-                    statsDiv.innerHTML = originalHtml;
+                    statsDiv.innerHTML = '📊 Загрузка...';
                 }
             }, 2000);
         }
         
-        // ========== ИЗМЕНЕНИЕ РОЛИ ==========
         function changeRole(userId, newRole) {
             const user = usersData.find(u => u.id == userId);
             if (user && user.role !== newRole) {
                 user.new_role = newRole;
                 changedUsers.add(userId);
                 renderUsers(usersData);
-                
                 if (tg) {
                     tg.MainButton.setText(`💾 Сохранить (${changedUsers.size})`);
                     tg.MainButton.show();
@@ -166,10 +153,8 @@
             }
         }
         
-        // ========== ОТОБРАЖЕНИЕ ==========
         function renderUsers(users) {
             const container = document.getElementById('users-list');
-            
             if (!users || users.length === 0) {
                 container.innerHTML = '<div class="loading">📭 Нет пользователей</div>';
                 return;
@@ -179,30 +164,14 @@
             for (const user of users) {
                 const currentRole = user.new_role || user.role;
                 const hasChanges = !!user.new_role;
-                
                 html += `
                     <div class="user-card" style="border-left: ${hasChanges ? '3px solid #ff9800' : 'none'}">
                         <div class="user-name">${escapeHtml(user.full_name)}</div>
                         <div class="user-org">🏢 ${escapeHtml(user.organization)}</div>
                         <div class="role-buttons">
-                            <div class="role-option">
-                                <input type="radio" name="role_${user.id}" value="admin" 
-                                    ${currentRole === 'admin' ? 'checked' : ''} 
-                                    onchange="changeRole(${user.id}, 'admin')">
-                                <label>👑 Админ</label>
-                            </div>
-                            <div class="role-option">
-                                <input type="radio" name="role_${user.id}" value="specialist"
-                                    ${currentRole === 'specialist' ? 'checked' : ''}
-                                    onchange="changeRole(${user.id}, 'specialist')">
-                                <label>👨‍💼 Специалист</label>
-                            </div>
-                            <div class="role-option">
-                                <input type="radio" name="role_${user.id}" value="marker"
-                                    ${currentRole === 'marker' ? 'checked' : ''}
-                                    onchange="changeRole(${user.id}, 'marker')">
-                                <label>🎯 Маркировщик</label>
-                            </div>
+                            <label class="role-option"><input type="radio" name="role_${user.id}" value="admin" ${currentRole === 'admin' ? 'checked' : ''} onchange="changeRole(${user.id}, 'admin')"> 👑 Админ</label>
+                            <label class="role-option"><input type="radio" name="role_${user.id}" value="specialist" ${currentRole === 'specialist' ? 'checked' : ''} onchange="changeRole(${user.id}, 'specialist')"> 👨‍💼 Специалист</label>
+                            <label class="role-option"><input type="radio" name="role_${user.id}" value="marker" ${currentRole === 'marker' ? 'checked' : ''} onchange="changeRole(${user.id}, 'marker')"> 🎯 Маркировщик</label>
                         </div>
                     </div>
                 `;
@@ -218,8 +187,8 @@
             return div.innerHTML;
         }
         
-        // ========== ЗАПУСК ==========
-        console.log('🚀 Запуск приложения, API:', API_BASE_URL);
+        // Запуск
+        console.log('🚀 App started, API:', API_BASE_URL);
         loadUsers();
     </script>
 </body>
