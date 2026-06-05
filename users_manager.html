@@ -1,0 +1,346 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta property="og:title" content="Управление пользователями">
+    <meta property="og:type" content="website">
+    <title>Управление пользователями</title>
+    
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding: 16px;
+            margin: 0;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding-bottom: 80px;
+        }
+        h1 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .stats {
+            background: #e3f2fd;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            text-align: center;
+        }
+        .debug-panel {
+            background: #2d2d2d;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            max-height: 150px;
+            overflow-y: auto;
+            display: block;
+        }
+        .debug-panel pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .user-card {
+            background: white;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            padding: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .user-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 6px;
+        }
+        .user-org {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .role-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .role-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .role-option input[type="radio"] {
+            margin: 0;
+            width: 16px;
+            height: 16px;
+        }
+        .role-option label {
+            font-size: 13px;
+            color: #333;
+        }
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 12px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .close-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 90%;
+            max-width: 300px;
+        }
+        .save-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .save-btn:active {
+            background: #45a049;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👥 Управление пользователями</h1>
+        
+        <div class="debug-panel" id="debugPanel">
+            <pre id="debugLog">🟢 Загрузка...</pre>
+        </div>
+        
+        <div id="stats" class="stats">📊 Загрузка...</div>
+        <div id="users-list">⏳ Загрузка пользователей...</div>
+    </div>
+    <div class="footer">
+        <button class="close-btn" id="closeBtn">✖️ Закрыть</button>
+    </div>
+
+    <script>
+        // ========== ЛОГГЕР ==========
+        let debugMessages = [];
+        
+        function addDebugLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}`;
+            debugMessages.push(logMessage);
+            const debugLogElement = document.getElementById('debugLog');
+            if (debugLogElement) {
+                debugLogElement.textContent = debugMessages.join('\n');
+                const panel = document.getElementById('debugPanel');
+                if (panel) panel.scrollTop = panel.scrollHeight;
+            }
+            console.log(logMessage);
+        }
+        
+        // ========== TELEGRAM INIT ==========
+        let tg = null;
+        
+        function waitForTelegram() {
+            if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
+                tg = window.Telegram.WebApp;
+                addDebugLog('✅ Telegram SDK загружен');
+                tg.ready();
+                tg.expand();
+                tg.MainButton.hide();
+                loadUsers();
+            } else {
+                addDebugLog('⏳ Ожидание Telegram SDK...');
+                setTimeout(waitForTelegram, 100);
+            }
+        }
+        
+        // ========== ДАННЫЕ ==========
+        let usersData = [];
+        let changedUsers = new Set();
+        let receivedPages = 0;
+        let expectedPages = 0;
+        let allUsers = [];
+        
+        function loadUsers() {
+            addDebugLog('🔄 Запрос списка пользователей...');
+            allUsers = [];
+            receivedPages = 0;
+            expectedPages = 0;
+            document.getElementById('users-list').innerHTML = '<div class="loading">⏳ Загрузка...</div>';
+            sendToBot({ action: 'get_users' });
+        }
+        
+        function sendToBot(data) {
+            if (!tg) {
+                addDebugLog('❌ Telegram не инициализирован');
+                return;
+            }
+            tg.sendData(JSON.stringify(data));
+            addDebugLog('📤 Отправлено: ' + JSON.stringify(data));
+        }
+        
+        function changeRole(userId, newRole) {
+            const user = usersData.find(u => u.id == userId);
+            if (user && user.role !== newRole) {
+                user.new_role = newRole;
+                changedUsers.add(userId);
+                addDebugLog(`🔄 ${user.full_name}: ${user.role} -> ${newRole}`);
+                
+                const card = document.getElementById(`card-${userId}`);
+                if (card) card.style.borderLeft = '3px solid #ff9800';
+                
+                if (tg) {
+                    tg.MainButton.setText(`💾 Сохранить (${changedUsers.size})`);
+                    tg.MainButton.show();
+                }
+            }
+        }
+        
+        function saveChanges() {
+            if (changedUsers.size === 0) {
+                addDebugLog('Нет изменений');
+                return;
+            }
+            
+            const changes = [];
+            for (const userId of changedUsers) {
+                const user = usersData.find(u => u.id == userId);
+                if (user && user.new_role) {
+                    changes.push({
+                        telegram_id: user.id,
+                        new_role: user.new_role
+                    });
+                }
+            }
+            
+            addDebugLog(`💾 Сохраняем ${changes.length} изменений`);
+            sendToBot({ action: 'save_roles', changes: changes });
+        }
+        
+        function renderUsers(users) {
+            usersData = users;
+            const container = document.getElementById('users-list');
+            const statsDiv = document.getElementById('stats');
+            
+            statsDiv.innerHTML = `📊 Всего пользователей: ${users.length}`;
+            
+            if (users.length === 0) {
+                container.innerHTML = '<div class="loading">📭 Нет пользователей</div>';
+                return;
+            }
+            
+            let html = '';
+            for (const user of users) {
+                const currentRole = user.new_role || user.role;
+                const hasChanges = !!user.new_role;
+                
+                html += `
+                    <div class="user-card" id="card-${user.id}" style="border-left: ${hasChanges ? '3px solid #ff9800' : 'none'}">
+                        <div class="user-name">${escapeHtml(user.full_name)}</div>
+                        <div class="user-org">🏢 ${escapeHtml(user.organization)}</div>
+                        <div class="role-buttons">
+                            <div class="role-option">
+                                <input type="radio" name="role_${user.id}" value="admin" 
+                                    ${currentRole === 'admin' ? 'checked' : ''} 
+                                    onchange="changeRole(${user.id}, 'admin')">
+                                <label>👑 Админ</label>
+                            </div>
+                            <div class="role-option">
+                                <input type="radio" name="role_${user.id}" value="specialist"
+                                    ${currentRole === 'specialist' ? 'checked' : ''}
+                                    onchange="changeRole(${user.id}, 'specialist')">
+                                <label>👨‍💼 Специалист</label>
+                            </div>
+                            <div class="role-option">
+                                <input type="radio" name="role_${user.id}" value="marker"
+                                    ${currentRole === 'marker' ? 'checked' : ''}
+                                    onchange="changeRole(${user.id}, 'marker')">
+                                <label>🎯 Маркировщик</label>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += `<button class="save-btn" onclick="saveChanges()">💾 Сохранить изменения</button>`;
+            container.innerHTML = html;
+            addDebugLog(`✅ Отображено ${users.length} пользователей`);
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // ========== ОБРАБОТКА ОТВЕТОВ ОТ БОТА ==========
+        window.handleBotResponse = function(data) {
+            addDebugLog(`📨 Ответ: ${data.action}`);
+            
+            if (data.action === 'users_list') {
+                // СОБИРАЕМ ВСЕХ ПОЛЬЗОВАТЕЛЕЙ ИЗ ЧАСТЕЙ
+                if (data.users && data.users.length > 0) {
+                    allUsers = allUsers.concat(data.users);
+                    addDebugLog(`📦 Получена часть ${data.page}/${data.total_pages}, всего накоплено: ${allUsers.length}`);
+                }
+                
+                // Если это последняя часть — отображаем
+                if (data.is_last === true || data.page === data.total_pages) {
+                    addDebugLog(`✅ Все части получены! Отображаем ${allUsers.length} пользователей`);
+                    renderUsers(allUsers);
+                }
+                
+            } else if (data.action === 'save_result') {
+                if (data.success) {
+                    addDebugLog(`✅ Сохранено ${data.saved} изменений`);
+                    changedUsers.clear();
+                    if (tg) tg.MainButton.hide();
+                    setTimeout(() => loadUsers(), 1000);
+                } else {
+                    addDebugLog(`❌ Ошибка: ${data.error}`);
+                }
+            }
+        };
+        
+        // ========== ЗАПУСК ==========
+        document.getElementById('closeBtn').onclick = function() {
+            if (tg) tg.close();
+            else window.close();
+        };
+        
+        addDebugLog('🚀 Запуск приложения');
+        waitForTelegram();
+    </script>
+</body>
+</html>
