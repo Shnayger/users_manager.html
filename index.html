@@ -2,426 +2,561 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <meta property="og:title" content="Управление пользователями">
-    <meta property="og:type" content="website">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Управление пользователями</title>
-    
-    <!-- Telegram Web App SDK -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
     <style>
-        * {
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f5f7fa;
             padding: 16px;
-            margin: 0;
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 100%;
+            max-width: 1200px;
             margin: 0 auto;
-            padding-bottom: 80px;
         }
-        h1 {
-            font-size: 20px;
-            color: #333;
-            margin-bottom: 16px;
-            text-align: center;
-        }
-        .stats {
-            background: #e3f2fd;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            font-size: 14px;
-            text-align: center;
-        }
-        .debug-panel {
-            background: #2d2d2d;
-            color: #0f0;
-            font-family: monospace;
-            font-size: 10px;
-            padding: 8px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            max-height: 150px;
-            overflow-y: auto;
-            display: block;
-        }
-        .debug-panel pre {
-            margin: 0;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-        .user-card {
-            background: white;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            padding: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .user-name {
-            font-weight: 600;
-            font-size: 15px;
-            color: #333;
-            margin-bottom: 6px;
-        }
-        .user-org {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 10px;
-        }
-        .role-buttons {
+        .header {
             display: flex;
-            gap: 8px;
+            justify-content: space-between;
+            align-items: center;
             flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
-        .role-option {
+        .header h1 { font-size: 20px; color: #1a1a2e; }
+        .header-controls {
             display: flex;
             align-items: center;
-            gap: 4px;
-            font-size: 12px;
+            gap: 12px;
+            flex-wrap: wrap;
         }
-        .role-option input[type="radio"] {
-            margin: 0;
-            width: 14px;
-            height: 14px;
-        }
-        .role-option label {
-            font-size: 12px;
-            color: #333;
+        .header-controls select {
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background: white;
+            font-size: 14px;
             cursor: pointer;
+        }
+        .header-controls select:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        .stats {
+            font-size: 14px;
+            color: #6b7280;
+            padding: 8px 16px;
+            background: #f3f4f6;
+            border-radius: 8px;
         }
         .badge {
             display: inline-block;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 10px;
-            color: white;
-            margin-left: 4px;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
         }
-        .badge-admin { background: #e53935; }
-        .badge-supervisor { background: #ff8f00; }
-        .badge-lead_specialist { background: #2e7d32; }
-        .badge-specialist { background: #1e88e5; }
-        .badge-marker { background: #8e24aa; }
-        .badge-trusted_reporter { background: #00897b; }
-        .footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
+        .badge-admin { background: #dbeafe; color: #1d4ed8; }
+        .badge-specialist { background: #d1fae5; color: #065f46; }
+        .badge-marker { background: #fef3c7; color: #92400e; }
+        .badge-supervisor { background: #ede9fe; color: #5b21b6; }
+        .badge-lead_specialist { background: #fce4ec; color: #b71c1c; }
+        .badge-trusted_reporter { background: #e0f7fa; color: #00695c; }
+        .badge-default { background: #f3f4f6; color: #374151; }
+
+        .table-container {
             background: white;
-            padding: 12px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            align-items: center;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+            overflow-x: auto;
         }
-        .close-btn {
-            background: #f44336;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-size: 16px;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        thead {
+            background: #f8fafc;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        th {
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #1e293b;
+            white-space: nowrap;
+        }
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+        tr:hover { background: #fafbfc; }
+        .user-id {
+            font-size: 12px;
+            color: #94a3b8;
+            font-family: monospace;
+        }
+        .role-select {
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            background: white;
+            font-size: 13px;
             cursor: pointer;
-            width: 90%;
-            max-width: 300px;
+            min-width: 120px;
         }
-        .close-btn:active {
-            background: #d32f2f;
+        .role-select:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        .role-select:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: #f3f4f6;
         }
         .save-btn {
-            background: #4caf50;
+            padding: 10px 24px;
+            background: #4f46e5;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-size: 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
             cursor: pointer;
-            width: 90%;
-            max-width: 300px;
+            transition: all 0.2s;
+        }
+        .save-btn:hover:not(:disabled) {
+            background: #4338ca;
+            transform: translateY(-1px);
+        }
+        .save-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .save-btn.saving {
+            background: #818cf8;
+            cursor: wait;
+        }
+        .save-btn.success {
+            background: #22c55e;
+        }
+        .status-message {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
             display: none;
         }
-        .save-btn:active {
-            background: #45a049;
+        .status-message.success { background: #dcfce7; color: #166534; display: block; }
+        .status-message.error { background: #fee2e2; color: #991b1b; display: block; }
+        .status-message.info { background: #dbeafe; color: #1e40af; display: block; }
+
+        .no-data {
+            text-align: center;
+            padding: 48px 20px;
+            color: #94a3b8;
         }
-        .save-btn.show {
-            display: block;
-        }
-        .loading {
+
+        .empty-state {
             text-align: center;
             padding: 40px;
-            color: #666;
+            color: #94a3b8;
         }
-        .changed {
-            border-left: 3px solid #ff9800 !important;
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+        .worker-code {
+            font-family: monospace;
+            font-size: 13px;
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #1e293b;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .header-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            th, td {
+                padding: 8px 10px;
+                font-size: 12px;
+            }
+            .role-select {
+                min-width: 80px;
+                font-size: 11px;
+                padding: 2px 4px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>👥 Управление пользователями</h1>
-        
-        <div class="debug-panel" id="debugPanel">
-            <pre id="debugLog">🟢 Загрузка...</pre>
-        </div>
-        
-        <div id="stats" class="stats">📊 Загрузка...</div>
-        <div id="users-list">⏳ Загрузка пользователей...</div>
-    </div>
-    <div class="footer">
-        <button class="save-btn" id="saveBtn" onclick="saveChanges()">💾 Сохранить изменения</button>
-        <button class="close-btn" id="closeBtn">✖️ Закрыть</button>
-    </div>
 
-    <script>
-        // ========== ЛОГГЕР ==========
-        let debugMessages = [];
-        
-        function addDebugLog(message) {
-            const timestamp = new Date().toLocaleTimeString();
-            const logMessage = `[${timestamp}] ${message}`;
-            debugMessages.push(logMessage);
-            const debugLogElement = document.getElementById('debugLog');
-            if (debugLogElement) {
-                debugLogElement.textContent = debugMessages.join('\n');
-                const panel = document.getElementById('debugPanel');
-                if (panel) panel.scrollTop = panel.scrollHeight;
-            }
-            console.log(logMessage);
-        }
-        
-        // ========== TELEGRAM INIT ==========
-        let tg = null;
-        
-        function waitForTelegram() {
-            if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
-                tg = window.Telegram.WebApp;
-                addDebugLog('✅ Telegram SDK загружен');
-                tg.ready();
-                tg.expand();
-                tg.MainButton.hide();
-                loadUsers();
-            } else {
-                addDebugLog('⏳ Ожидание Telegram SDK...');
-                setTimeout(waitForTelegram, 100);
-            }
-        }
-        
-        // ========== МАППИНГ РОЛЕЙ ==========
-        const roleLabels = {
-            'admin': '👑 Админ',
-            'supervisor': '👔 Нач. уч-ка',
-            'lead_specialist': '⭐ Ведущий спец.',
-            'specialist': '👨‍💼 Специалист',
-            'marker': '🎯 Маркировщик',
-            'trusted_reporter': '📋 Доверенный'
-        };
-        
-        const roleBadgeClass = {
-            'admin': 'badge-admin',
-            'supervisor': 'badge-supervisor',
-            'lead_specialist': 'badge-lead_specialist',
-            'specialist': 'badge-specialist',
-            'marker': 'badge-marker',
-            'trusted_reporter': 'badge-trusted_reporter'
-        };
-        
-        // ========== ДАННЫЕ ==========
-        let usersData = [];
-        let changedUsers = new Set();
-        let receivedPages = 0;
-        let expectedPages = 0;
-        let allUsers = [];
-        
-        function loadUsers() {
-            addDebugLog('🔄 Запрос списка пользователей...');
-            allUsers = [];
-            receivedPages = 0;
-            expectedPages = 0;
-            document.getElementById('users-list').innerHTML = '<div class="loading">⏳ Загрузка...</div>';
-            document.getElementById('saveBtn').classList.remove('show');
-            sendToBot({ action: 'get_users' });
-        }
-        
-        function sendToBot(data) {
-            if (!tg) {
-                addDebugLog('❌ Telegram не инициализирован');
-                return;
-            }
-            tg.sendData(JSON.stringify(data));
-            addDebugLog('📤 Отправлено: ' + JSON.stringify(data));
-        }
-        
-        function changeRole(userId, newRole) {
-            const user = usersData.find(u => u.id == userId);
-            if (user && user.role !== newRole) {
-                user.new_role = newRole;
-                changedUsers.add(userId);
-                addDebugLog(`🔄 ${user.full_name}: ${user.role} -> ${newRole}`);
-                
-                // Обновляем UI
-                renderUsers(usersData);
-                
-                const saveBtn = document.getElementById('saveBtn');
-                saveBtn.textContent = `💾 Сохранить (${changedUsers.size})`;
-                saveBtn.classList.add('show');
-                
-                if (tg) {
-                    tg.MainButton.setText(`💾 Сохранить (${changedUsers.size})`);
-                    tg.MainButton.show();
+<div class="header">
+    <h1>👥 Управление пользователями</h1>
+    <div class="header-controls">
+        <div class="stats" id="totalStats">Загрузка...</div>
+        <select id="roleFilter" onchange="loadUsers()">
+            <option value="all">Все роли</option>
+            <option value="admin">Администраторы</option>
+            <option value="specialist">Специалисты</option>
+            <option value="marker">Маркировщики</option>
+            <option value="supervisor">Начальники участка</option>
+            <option value="lead_specialist">Ведущие специалисты</option>
+            <option value="trusted_reporter">Доверенные</option>
+        </select>
+        <button class="save-btn" id="saveBtn" onclick="saveChanges()" disabled>💾 Сохранить изменения</button>
+    </div>
+</div>
+
+<div id="statusMessage" class="status-message"></div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>№</th>
+                <th>ФИО</th>
+                <th>Организация</th>
+                <th>Код сотрудника</th>
+                <th>Роль</th>
+            </tr>
+        </thead>
+        <tbody id="usersTableBody">
+            <tr><td colspan="5" class="empty-state"><div class="icon">🔄</div>Загрузка пользователей...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
+    let allUsers = [];
+    let originalRoles = {};
+    let hasChanges = false;
+    let isAdmin = false;
+    let currentUserTelegramId = null;
+
+    // --- ПОЛУЧЕНИЕ РОЛИ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ ---
+    async function getUserRole() {
+        try {
+            // Пытаемся получить tg_id из параметров WebApp
+            const tg = window.Telegram?.WebApp;
+            if (tg && tg.initDataUnsafe?.user?.id) {
+                currentUserTelegramId = tg.initDataUnsafe.user.id;
+                const response = await fetch(`/api/user-role?telegram_id=${currentUserTelegramId}`);
+                const data = await response.json();
+                if (data.success) {
+                    isAdmin = data.is_admin || false;
+                    return data.role;
                 }
             }
+            // Если не удалось через WebApp, пробуем через get_user
+            return 'marker'; // fallback
+        } catch (e) {
+            console.error('Ошибка получения роли:', e);
+            return 'marker';
         }
-        
-        function saveChanges() {
-            if (changedUsers.size === 0) {
-                addDebugLog('Нет изменений');
-                return;
+    }
+
+    // --- ЗАГРУЗКА ПОЛЬЗОВАТЕЛЕЙ ---
+    async function loadUsers() {
+        const filter = document.getElementById('roleFilter').value;
+        const tbody = document.getElementById('usersTableBody');
+        const stats = document.getElementById('totalStats');
+
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><div class="icon">🔄</div>Загрузка...</td></tr>`;
+        showStatus('', '');
+
+        try {
+            const response = await fetch(`/api/users?role=${filter}`);
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Ошибка загрузки');
             }
-            
+
+            allUsers = data.users || [];
+            stats.textContent = `👥 ${data.total} пользователей`;
+
+            // Сохраняем исходные роли
+            originalRoles = {};
+            allUsers.forEach(u => {
+                originalRoles[u.telegram_id] = u.role;
+            });
+
+            renderTable(allUsers);
+            hasChanges = false;
+            document.getElementById('saveBtn').disabled = true;
+
+        } catch (error) {
+            console.error('Ошибка загрузки пользователей:', error);
+            tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><div class="icon">❌</div>Ошибка загрузки: ${error.message}</td></tr>`;
+            stats.textContent = '❌ Ошибка';
+        }
+    }
+
+    // --- ОТОБРАЖЕНИЕ ТАБЛИЦЫ ---
+    function renderTable(users) {
+        const tbody = document.getElementById('usersTableBody');
+
+        if (!users || users.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><div class="icon">📭</div>Нет пользователей</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        users.forEach((user, index) => {
+            const isChanged = originalRoles[user.telegram_id] !== user.role;
+            const roleDisplay = user.role_display || user.role || 'Не назначена';
+
+            // CSS-класс для бейджа
+            let badgeClass = 'badge-default';
+            const roleMap = {
+                'admin': 'badge-admin',
+                'specialist': 'badge-specialist',
+                'marker': 'badge-marker',
+                'supervisor': 'badge-supervisor',
+                'lead_specialist': 'badge-lead_specialist',
+                'trusted_reporter': 'badge-trusted_reporter'
+            };
+            if (user.role && roleMap[user.role]) {
+                badgeClass = roleMap[user.role];
+            }
+
+            const workerCode = user.worker_code && user.worker_code !== '—' 
+                ? `<span class="worker-code">${user.worker_code}</span>` 
+                : '—';
+
+            html += `
+                <tr${isChanged ? ' style="background: #fef3c7;"' : ''}>
+                    <td>${index + 1}</td>
+                    <td>
+                        <strong>${user.full_name}</strong>
+                        <div class="user-id">ID: ${user.telegram_id}</div>
+                    </td>
+                    <td>${user.organization}</td>
+                    <td>${workerCode}</td>
+                    <td>
+                        ${isAdmin ? `
+                            <select class="role-select" 
+                                    data-telegram="${user.telegram_id}"
+                                    onchange="onRoleChange(this)">
+                                ${getRoleOptions(user.role)}
+                            </select>
+                        ` : `
+                            <span class="badge ${badgeClass}">${roleDisplay}</span>
+                        `}
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+
+        // Если есть изменения, активируем кнопку сохранения
+        checkForChanges();
+    }
+
+    // --- ПОЛУЧЕНИЕ ОПЦИЙ ДЛЯ SELECT ---
+    function getRoleOptions(selectedRole) {
+        const roles = [
+            { value: 'admin', label: 'Администратор' },
+            { value: 'specialist', label: 'Специалист' },
+            { value: 'marker', label: 'Маркировщик' },
+            { value: 'supervisor', label: 'Начальник участка' },
+            { value: 'lead_specialist', label: 'Ведущий специалист' },
+            { value: 'trusted_reporter', label: 'Доверенный' }
+        ];
+
+        let options = '';
+        roles.forEach(role => {
+            const selected = role.value === selectedRole ? 'selected' : '';
+            options += `<option value="${role.value}" ${selected}>${role.label}</option>`;
+        });
+        return options;
+    }
+
+    // --- ОБРАБОТКА ИЗМЕНЕНИЯ РОЛИ ---
+    function onRoleChange(select) {
+        const telegramId = parseInt(select.dataset.telegram);
+        const newRole = select.value;
+
+        // Обновляем в массиве
+        const user = allUsers.find(u => u.telegram_id === telegramId);
+        if (user) {
+            user.role = newRole;
+            // Обновляем отображаемое имя роли
+            const roleMap = {
+                'admin': 'Администратор',
+                'specialist': 'Специалист',
+                'marker': 'Маркировщик',
+                'supervisor': 'Начальник участка',
+                'lead_specialist': 'Ведущий специалист',
+                'trusted_reporter': 'Доверенный'
+            };
+            user.role_display = roleMap[newRole] || newRole;
+        }
+
+        checkForChanges();
+    }
+
+    // --- ПРОВЕРКА НАЛИЧИЯ ИЗМЕНЕНИЙ ---
+    function checkForChanges() {
+        hasChanges = false;
+        for (const user of allUsers) {
+            if (originalRoles[user.telegram_id] !== user.role) {
+                hasChanges = true;
+                break;
+            }
+        }
+
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.disabled = !hasChanges || !isAdmin;
+
+        // Подсвечиваем измененные строки
+        const rows = document.querySelectorAll('#usersTableBody tr');
+        rows.forEach((row, index) => {
+            if (index < allUsers.length) {
+                const user = allUsers[index];
+                const isChanged = originalRoles[user.telegram_id] !== user.role;
+                row.style.background = isChanged ? '#fef3c7' : '';
+            }
+        });
+
+        if (hasChanges && isAdmin) {
+            showStatus('info', '⚠️ Есть несохраненные изменения. Нажмите "Сохранить".');
+        } else {
+            document.getElementById('statusMessage').style.display = 'none';
+        }
+    }
+
+    // --- ОТОБРАЖЕНИЕ СТАТУСА ---
+    function showStatus(type, message) {
+        const el = document.getElementById('statusMessage');
+        if (!message) {
+            el.style.display = 'none';
+            return;
+        }
+        el.className = `status-message ${type}`;
+        el.textContent = message;
+        el.style.display = 'block';
+    }
+
+    // --- СОХРАНЕНИЕ ИЗМЕНЕНИЙ ---
+    async function saveChanges() {
+        if (!hasChanges) {
+            showStatus('info', 'Нет изменений для сохранения');
+            return;
+        }
+
+        if (!isAdmin) {
+            showStatus('error', '❌ У вас нет прав на изменение ролей');
+            return;
+        }
+
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ Сохранение...';
+        saveBtn.classList.add('saving');
+        showStatus('', '');
+
+        try {
+            // Собираем изменения
             const changes = [];
-            for (const userId of changedUsers) {
-                const user = usersData.find(u => u.id == userId);
-                if (user && user.new_role) {
+            for (const user of allUsers) {
+                if (originalRoles[user.telegram_id] !== user.role) {
                     changes.push({
-                        telegram_id: user.id,
-                        new_role: user.new_role
+                        telegram_id: user.telegram_id,
+                        new_role: user.role
                     });
                 }
             }
-            
-            addDebugLog(`💾 Сохраняем ${changes.length} изменений`);
-            document.getElementById('saveBtn').textContent = '⏳ Сохранение...';
-            document.getElementById('saveBtn').disabled = true;
-            sendToBot({ action: 'save_roles', changes: changes });
-        }
-        
-        function renderUsers(users) {
-            usersData = users;
-            const container = document.getElementById('users-list');
-            const statsDiv = document.getElementById('stats');
-            
-            statsDiv.innerHTML = `📊 Всего пользователей: ${users.length}`;
-            
-            if (users.length === 0) {
-                container.innerHTML = '<div class="loading">📭 Нет пользователей</div>';
+
+            if (changes.length === 0) {
+                showStatus('info', 'Нет изменений для сохранения');
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 Сохранить изменения';
+                saveBtn.classList.remove('saving');
                 return;
             }
-            
-            let html = '';
-            for (const user of users) {
-                const currentRole = user.new_role || user.role || 'marker';
-                const hasChanges = !!user.new_role;
-                const badgeClass = roleBadgeClass[currentRole] || '';
-                const roleLabel = roleLabels[currentRole] || currentRole;
-                
-                html += `
-                    <div class="user-card ${hasChanges ? 'changed' : ''}" id="card-${user.id}">
-                        <div class="user-name">
-                            ${escapeHtml(user.full_name)}
-                            <span class="badge ${badgeClass}">${roleLabel}</span>
-                        </div>
-                        <div class="user-org">🏢 ${escapeHtml(user.organization)}</div>
-                        <div class="role-buttons">
-                            <div class="role-option">
-                                <input type="radio" name="role_${user.id}" value="admin" 
-                                    ${currentRole === 'admin' ? 'checked' : ''} 
-                                    onchange="changeRole(${user.id}, 'admin')">
-                                <label>👑 Админ</label>
-                            </div>
-                            <div class="role-option">
-                                <input type="radio" name="role_${user.id}" value="supervisor"
-                                    ${currentRole === 'supervisor' ? 'checked' : ''}
-                                    onchange="changeRole(${user.id}, 'supervisor')">
-                                <label>👔 Нач. уч-ка</label>
-                            </div>
-                            <div class="role-option">
-                                <input type="radio" name="role_${user.id}" value="lead_specialist"
-                                    ${currentRole === 'lead_specialist' ? 'checked' : ''}
-                                    onchange="changeRole(${user.id}, 'lead_specialist')">
-                                <label>⭐ Ведущий спец.</label>
-                            </div>
-                            <div class="role-option">
-                                <input type="radio" name="role_${user.id}" value="specialist"
-                                    ${currentRole === 'specialist' ? 'checked' : ''}
-                                    onchange="changeRole(${user.id}, 'specialist')">
-                                <label>👨‍💼 Специалист</label>
-                            </div>
-                            <div class="role-option">
-                                <input type="radio" name="role_${user.id}" value="marker"
-                                    ${currentRole === 'marker' ? 'checked' : ''}
-                                    onchange="changeRole(${user.id}, 'marker')">
-                                <label>🎯 Маркировщик</label>
-                            </div>
-                            <div class="role-option">
-                                <input type="radio" name="role_${user.id}" value="trusted_reporter"
-                                    ${currentRole === 'trusted_reporter' ? 'checked' : ''}
-                                    onchange="changeRole(${user.id}, 'trusted_reporter')">
-                                <label>📋 Доверенный</label>
-                            </div>
-                        </div>
-                    </div>
-                `;
+
+            const response = await fetch('/api/roles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ changes })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Обновляем сохраненные роли
+                changes.forEach(change => {
+                    originalRoles[change.telegram_id] = change.new_role;
+                });
+
+                hasChanges = false;
+                showStatus('success', `✅ Сохранено! Обновлено ${result.saved} пользователей.`);
+                saveBtn.classList.add('success');
+                setTimeout(() => saveBtn.classList.remove('success'), 2000);
+
+                // Перезагружаем список
+                await loadUsers();
+            } else {
+                throw new Error(result.error || 'Ошибка сохранения');
             }
-            
-            container.innerHTML = html;
-            addDebugLog(`✅ Отображено ${users.length} пользователей`);
+
+        } catch (error) {
+            console.error('Ошибка сохранения:', error);
+            showStatus('error', `❌ Ошибка: ${error.message}`);
+        } finally {
+            saveBtn.textContent = '💾 Сохранить изменения';
+            saveBtn.classList.remove('saving');
+            saveBtn.disabled = !hasChanges || !isAdmin;
         }
-        
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+    }
+
+    // --- ИНИЦИАЛИЗАЦИЯ ---
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Определяем роль пользователя
+        await getUserRole();
+
+        // Если админ - показываем select для ролей, иначе только просмотр
+        if (!isAdmin) {
+            document.getElementById('saveBtn').style.display = 'none';
+            document.getElementById('saveBtn').disabled = true;
+            // Убираем фильтр для не-админов? Оставляем, но скрываем кнопку
         }
-        
-        // ========== ОБРАБОТКА ОТВЕТОВ ОТ БОТА ==========
-        window.handleBotResponse = function(data) {
-            addDebugLog(`📨 Ответ: ${data.action}`);
-            
-            if (data.action === 'users_list') {
-                if (data.users && data.users.length > 0) {
-                    allUsers = allUsers.concat(data.users);
-                    addDebugLog(`📦 Получена часть ${data.page}/${data.total_pages}, всего накоплено: ${allUsers.length}`);
-                }
-                
-                if (data.is_last === true || data.page === data.total_pages) {
-                    addDebugLog(`✅ Все части получены! Отображаем ${allUsers.length} пользователей`);
-                    renderUsers(allUsers);
-                }
-                
-            } else if (data.action === 'save_result') {
-                document.getElementById('saveBtn').textContent = '💾 Сохранить изменения';
-                document.getElementById('saveBtn').disabled = false;
-                
-                if (data.success) {
-                    addDebugLog(`✅ Сохранено ${data.saved} изменений`);
-                    changedUsers.clear();
-                    document.getElementById('saveBtn').classList.remove('show');
-                    if (tg) tg.MainButton.hide();
-                    setTimeout(() => loadUsers(), 1000);
-                } else {
-                    addDebugLog(`❌ Ошибка: ${data.error}`);
-                }
-            }
-        };
-        
-        // ========== ЗАПУСК ==========
-        document.getElementById('closeBtn').onclick = function() {
-            if (tg) tg.close();
-            else window.close();
-        };
-        
-        addDebugLog('🚀 Запуск приложения');
-        waitForTelegram();
-    </script>
+
+        // Загружаем пользователей
+        await loadUsers();
+
+        // Обработка WebApp
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+        }
+    });
+
+    // --- ПОИСК (опционально) ---
+    function filterUsers() {
+        loadUsers();
+    }
+
+    // Экспортируем для inline-обработчиков
+    window.loadUsers = loadUsers;
+    window.saveChanges = saveChanges;
+    window.onRoleChange = onRoleChange;
+</script>
+
 </body>
 </html>
